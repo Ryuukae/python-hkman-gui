@@ -306,23 +306,18 @@ class ConfigWindow(customtkinter.CTkToplevel):
 
         self.button_frame.pack(side="bottom", fill="x", padx=10, pady=10)
        
-
-
         self.create_btn.grid(sticky="ew", row=0, column=0, padx=5)
         self.remove_btn.grid(sticky="ew", row=0, column=1, padx=5)
         self.edit_btn.grid(sticky="ew", row=0, column=2, padx=5)
 
-        # Create the scrollable list FIRST
         self.scrollable_list = customtkinter.CTkScrollableFrame(master=self)
         self.scrollable_list.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Build the headers INSIDE the scrollable list
         self.header_frame = customtkinter.CTkFrame(master=self.scrollable_list, fg_color="transparent")
         self.header_frame.grid_columnconfigure(0, weight=0, minsize=40) 
         self.header_frame.grid_columnconfigure((1, 2, 4), weight=1, uniform="col")
         self.header_frame.grid_columnconfigure(3, weight=2, uniform="col")
         
-        # Look, no crazy padx math! Just pack it normally.
         self.header_frame.pack(fill="x", pady=(0, 5))
 
         customtkinter.CTkLabel(master=self.header_frame, text="Name", anchor="center", font=("Arial", 14, "bold")).grid(row=0, column=1, sticky="ew", padx=5)
@@ -502,11 +497,10 @@ class App(customtkinter.CTk):
             self.is_enabled = True
 
     def open_config_window(self):
-        # Check if the window hasn't been created yet, or if it was destroyed
         if not hasattr(self, 'config_window') or not self.config_window.winfo_exists():
             self.config_window = ConfigWindow(self)
         else:
-            self.config_window.focus() # If it's already open, just bring it to the front!
+            self.config_window.focus() 
 
     def register_keybinds(self):
         for section_name in self.config.sections():
@@ -522,7 +516,7 @@ class App(customtkinter.CTk):
     def format_config(self, config):
         for entry in config:
             config[entry] = os.path.expandvars(config[entry])
-        return config  # Returns the updated configuration dictionary
+        return config  
 
 
     def save_config(self):
@@ -530,49 +524,58 @@ class App(customtkinter.CTk):
         Persists modified ConfigParser object back to config.ini.
         Overwrites entire file.
         """
-        with open('./config.ini', 'w') as configfile:  # Opens 'config.ini' in "write" mode ('w'), which completely overwrites the existing file
-            self.config.write(configfile)  # Writes the current state of the 'config' object back into the file format
-        print(f"Updated keybinds successfully!")  # Prints a success message to the console
-
+        with open('./config.ini', 'w') as configfile:
+            self.config.write(configfile) 
+        print(f"Updated keybinds successfully!")  
 
     def get_editable_config(self):
         """
         Loads config.ini without interpolation for direct editing.
         Disables default ${var} expansion to avoid conflicts.
         """
-        # Initializes a parser object. interpolation=None stops it from accidentally trying to process '%' or '$' symbols as variables internally.
+
         config = configparser.ConfigParser(interpolation=None)
-        config.read('./config.ini')  # Reads the settings from the 'config.ini' file in the current directory
-        return config  # Returns the raw ConfigParser object so we can read or change its contents
+        config.read('./config.ini')  
+        return config  
 
     def create_config(self):
         config_path = './config.ini'
         if not os.path.exists(config_path):
             config = configparser.ConfigParser(interpolation=None)
             with open(config_path, 'w') as configfile:
-                config.write(configfile)  # Writes an empty, valid config structure to the drive
+                config.write(configfile)  
             print("Created a new config.ini file.")
 
-    def open_path(self, path):
+def open_path(self, path):
+        # On Linux/Mac, expandvars uses $VAR instead of %VAR%
         full_path = os.path.expandvars(path)
         
-        # Check if it is a website
         if full_path.startswith("https://") or full_path.startswith("http://"):
             webbrowser.open(full_path)
-            return # Stop running the rest of the function!
+            return
         else:
-            # If it's not a website, make sure the file/folder actually exists
             if not os.path.exists(full_path):
                 print(f"Error: Path does not exist: {full_path}")
                 return
             
-        # Check if the path is a folder
-        if os.path.isdir(full_path):
-            # Force Windows to open a brand new Explorer window 📂
-            subprocess.Popen(['explorer', full_path])
+       
+        if sys.platform == "win32":
+            # --- WINDOWS LOGIC ---
+            if os.path.isdir(full_path):
+                # 0x00000008 is the Windows flag for DETACHED_PROCESS
+                subprocess.Popen(['explorer', full_path], creationflags=0x00000008)
+            else:
+                os.startfile(full_path) 
+                
+        elif sys.platform == "darwin":
+            # --- MACOS LOGIC ---
+            # start_new_session=True safely detaches the child process on Apple
+            subprocess.Popen(['open', full_path], start_new_session=True)
+            
         else:
-            # If it's a file or .exe, open it normally 📄
-            os.startfile(full_path)
+            # --- LINUX LOGIC ---
+            # start_new_session=True safely detaches the child process on Linux
+            subprocess.Popen(['xdg-open', full_path], start_new_session=True)
      
 
 
